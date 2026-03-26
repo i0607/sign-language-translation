@@ -51,8 +51,12 @@ class TrainManager:
         train_config = config["training"]
 
         # files for logging and storing
+        # Allow existing directory if we're resuming from a checkpoint
+        allow_existing = "load_model" in train_config
         self.model_dir = make_model_dir(
-            train_config["model_dir"], overwrite=train_config.get("overwrite", False)
+            train_config["model_dir"], 
+            overwrite=train_config.get("overwrite", False),
+            allow_existing=allow_existing
         )
         self.logger = make_logger(model_dir=self.model_dir)
         self.logging_freq = train_config.get("logging_freq", 100)
@@ -162,12 +166,17 @@ class TrainManager:
         self.eval_batch_type = train_config.get("eval_batch_type", self.batch_type)
 
         self.use_cuda = train_config["use_cuda"]
+        # Disable MPS for now - PyTorch 1.13.1 has issues with MPS
+        # Use CPU when CUDA is not available
+        self.use_mps = False
+        
         if self.use_cuda:
             self.model.cuda()
             if self.do_translation:
                 self.translation_loss_function.cuda()
             if self.do_recognition:
                 self.recognition_loss_function.cuda()
+        # If CUDA not available, model stays on CPU (default)
 
         # initialize training statistics
         self.steps = 0
@@ -335,9 +344,10 @@ class TrainManager:
         else:
             self.logger.info("Reset tracking of the best checkpoint.")
 
-        # move parameters to cuda
+        # move parameters to cuda or keep on cpu
         if self.use_cuda:
             self.model.cuda()
+        # If CUDA not available, model stays on CPU (default)
 
     def train_and_validate(self, train_data: Dataset, valid_data: Dataset) -> None:
         """
@@ -557,6 +567,11 @@ class TrainManager:
                         ckpt_score = val_res["valid_scores"][self.eval_metric]
 
                     new_best = False
+                    # Save checkpoint at every validation (one by one)
+                    if self.ckpt_queue.maxsize > 0:
+                        self.logger.info("Saving checkpoint at step %d.", self.steps)
+                        self._save_checkpoint()
+                    
                     if self.is_best(ckpt_score):
                         self.best_ckpt_score = ckpt_score
                         self.best_all_ckpt_scores = val_res["valid_scores"]
@@ -565,10 +580,7 @@ class TrainManager:
                             "Hooray! New best validation result [%s]!",
                             self.early_stopping_metric,
                         )
-                        if self.ckpt_queue.maxsize > 0:
-                            self.logger.info("Saving new checkpoint.")
-                            new_best = True
-                            self._save_checkpoint()
+                        new_best = True
 
                     if (
                         self.scheduler is not None
