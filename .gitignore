@@ -1,0 +1,18 @@
+
+.idea/
+
+*.pyc
+
+# Local environments
+venv/
+
+# Datasets (do not commit)
+data/PHOENIX2014T/
+data/PHOENIX2014T_ENGLISH/
+
+# Training artifacts (do not commit)
+sign_sample_model*/
+**/*.ckpt
+**/train.log
+**/tensorboard/
+**/plots_and_json/
