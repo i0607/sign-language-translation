@@ -1,4 +1,4 @@
-name: sign_experiment
+name: sign_experiment_improved_v3
 data:
     data_path: ./data/
     version: phoenix_2014_trans
@@ -50,13 +50,13 @@ training:
     reset_scheduler: false
     reset_optimizer: false
     random_seed: 42
-    model_dir: "./sign_sample_model"
-    recognition_loss_weight: 1.0
+    model_dir: "./sign_sample_model_improved_v3"
+    recognition_loss_weight: 2.0  # From v1: Increased weight for recognition
     translation_loss_weight: 1.0
     eval_metric: bleu
     optimizer: adam
     learning_rate: 0.001
-    batch_size: 32
+    batch_size: 48
     num_valid_log: 5
     epochs: 50
     early_stopping_metric: eval_metric
@@ -65,7 +65,8 @@ training:
     eval_recognition_beam_size: 1
     eval_translation_beam_size: 1
     eval_translation_beam_alpha: -1
-    overwrite: true
+    overwrite: false
+    load_model: ./sign_sample_model_improved_v3/best.ckpt
     shuffle: true
     use_cuda: false  # Set to false for CPU/MPS on macOS (CUDA not available)
     translation_max_output_length: 30
@@ -91,7 +92,7 @@ model:
     tied_softmax: false
     encoder:
         type: transformer
-        num_layers: 3
+        num_layers: 4  # From v2: Increased from 3 to 4 layers
         num_heads: 8
         embeddings:
             embedding_dim: 512
@@ -104,7 +105,7 @@ model:
         dropout: 0.1
     decoder:
         type: transformer
-        num_layers: 3
+        num_layers: 4  # From v2: Increased from 3 to 4 layers
         num_heads: 8
         embeddings:
             embedding_dim: 512

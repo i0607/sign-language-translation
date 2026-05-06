@@ -1,13 +1,13 @@
-name: sign_experiment
+name: sign_experiment_de_en_v4_langhead_finetune
 data:
     data_path: ./data/
     version: phoenix_2014_trans
     sgn: sign
     txt: text
     gls: gloss
-    train: PHOENIX2014T/phoenix14t.pami0.train
-    dev: PHOENIX2014T/phoenix14t.pami0.dev
-    test: PHOENIX2014T/phoenix14t.pami0.test
+    train: PHOENIX2014T_DE_EN_V2/phoenix14t_de_en_v2.train
+    dev: PHOENIX2014T_DE_EN_V2/phoenix14t_de_en_v2.dev
+    test: PHOENIX2014T_DE_EN_V2/phoenix14t_de_en_v2.test
     feature_size: 1024
     level: word
     txt_lowercase: true
@@ -15,73 +15,45 @@ data:
     random_train_subset: -1
     random_dev_subset: -1
 testing:
-    recognition_beam_sizes:
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    - 9
-    - 10
-    translation_beam_sizes:
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    - 9
-    - 10
-    translation_beam_alphas:
-    - -1
-    - 0
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
+    recognition_beam_sizes: [1,2,3,4,5,6,7,8,9,10]
+    translation_beam_sizes: [1,2,3,4,5,6,7,8,9,10]
+    translation_beam_alphas: [-1,0,1,2,3,4,5]
 training:
-    reset_best_ckpt: false
-    reset_scheduler: false
-    reset_optimizer: false
     random_seed: 42
-    model_dir: "./sign_sample_model"
-    recognition_loss_weight: 1.0
-    translation_loss_weight: 1.0
+    model_dir: "./sign_sample_model_de_en_v4_langhead"
+    load_model: ./sign_sample_model_de_en_v3/best.ckpt
+    reset_best_ckpt: true
+    reset_scheduler: true
+    reset_optimizer: true
+    recognition_loss_weight: 2.2
+    translation_loss_weight: 1.2
     eval_metric: bleu
     optimizer: adam
-    learning_rate: 0.001
-    batch_size: 32
+    learning_rate: 0.0003
+    batch_size: 48
     num_valid_log: 5
-    epochs: 50
+    epochs: 40
     early_stopping_metric: eval_metric
     batch_type: sentence
     translation_normalization: batch
     eval_recognition_beam_size: 1
     eval_translation_beam_size: 1
     eval_translation_beam_alpha: -1
-    overwrite: true
+    overwrite: false
     shuffle: true
-    use_cuda: false  # Set to false for CPU/MPS on macOS (CUDA not available)
-    translation_max_output_length: 30
+    use_cuda: false
+    translation_max_output_length: 40
     keep_last_ckpts: 1000
     batch_multiplier: 1
     logging_freq: 50
     validation_freq: 100
-    betas:
-    - 0.9
-    - 0.998
+    betas: [0.9, 0.998]
     scheduling: plateau
     learning_rate_min: 1.0e-07
     weight_decay: 0.001
-    patience: 8
-    decrease_factor: 0.7
-    label_smoothing: 0.0
+    patience: 12
+    decrease_factor: 0.8
+    label_smoothing: 0.1
 model:
     initializer: xavier
     bias_initializer: zeros
@@ -91,7 +63,7 @@ model:
     tied_softmax: false
     encoder:
         type: transformer
-        num_layers: 3
+        num_layers: 4
         num_heads: 8
         embeddings:
             embedding_dim: 512
@@ -104,7 +76,7 @@ model:
         dropout: 0.1
     decoder:
         type: transformer
-        num_layers: 3
+        num_layers: 4
         num_heads: 8
         embeddings:
             embedding_dim: 512
@@ -115,3 +87,4 @@ model:
         hidden_size: 512
         ff_size: 2048
         dropout: 0.1
+        lang_head_tokens: ["<de>", "<en>"]

@@ -1,4 +1,4 @@
-name: sign_experiment
+name: sign_experiment_improved_v2
 data:
     data_path: ./data/
     version: phoenix_2014_trans
@@ -50,8 +50,8 @@ training:
     reset_scheduler: false
     reset_optimizer: false
     random_seed: 42
-    model_dir: "./sign_sample_model"
-    recognition_loss_weight: 1.0
+    model_dir: "./sign_sample_model_improved_v2"
+    recognition_loss_weight: 2.0  # From v1: Keep increased weight
     translation_loss_weight: 1.0
     eval_metric: bleu
     optimizer: adam
@@ -91,7 +91,7 @@ model:
     tied_softmax: false
     encoder:
         type: transformer
-        num_layers: 3
+        num_layers: 4  # IMPROVEMENT: Increased from 3 to 4 layers
         num_heads: 8
         embeddings:
             embedding_dim: 512
@@ -104,7 +104,7 @@ model:
         dropout: 0.1
     decoder:
         type: transformer
-        num_layers: 3
+        num_layers: 4  # IMPROVEMENT: Increased from 3 to 4 layers
         num_heads: 8
         embeddings:
             embedding_dim: 512

@@ -5,7 +5,7 @@ import sys
 from signjoey.training import train
 from signjoey.prediction import test
 
-sys.path.append("/vol/research/extol/personal/cihan/code/SignJoey")
+# Removed hardcoded path - not needed
 
 
 def main():

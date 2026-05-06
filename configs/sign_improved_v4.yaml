@@ -1,4 +1,4 @@
-name: sign_experiment
+name: sign_experiment_improved_v4_final
 data:
     data_path: ./data/
     version: phoenix_2014_trans
@@ -50,13 +50,17 @@ training:
     reset_scheduler: false
     reset_optimizer: false
     random_seed: 42
-    model_dir: "./sign_sample_model"
-    recognition_loss_weight: 1.0
+    model_dir: "./sign_sample_model_improved_v4"
+    # IMPROVEMENT 1: Increased recognition loss weight (2.0 → 2.5)
+    # Rationale: v1 with 2.0 achieved 31.98% WER, increasing to 2.5 should push WER lower
+    recognition_loss_weight: 2.5
     translation_loss_weight: 1.0
     eval_metric: bleu
     optimizer: adam
-    learning_rate: 0.001
-    batch_size: 32
+    # IMPROVEMENT 2: Optimized learning rate (0.001 → 0.0008)
+    # Rationale: Lower initial LR for more stable training, better convergence
+    learning_rate: 0.0008
+    batch_size: 48
     num_valid_log: 5
     epochs: 50
     early_stopping_metric: eval_metric
@@ -65,7 +69,7 @@ training:
     eval_recognition_beam_size: 1
     eval_translation_beam_size: 1
     eval_translation_beam_alpha: -1
-    overwrite: true
+    overwrite: false
     shuffle: true
     use_cuda: false  # Set to false for CPU/MPS on macOS (CUDA not available)
     translation_max_output_length: 30
@@ -79,9 +83,15 @@ training:
     scheduling: plateau
     learning_rate_min: 1.0e-07
     weight_decay: 0.001
-    patience: 8
-    decrease_factor: 0.7
-    label_smoothing: 0.0
+    # IMPROVEMENT 3: Increased patience (8 → 10)
+    # Rationale: Give model more time to improve before reducing LR
+    patience: 10
+    # IMPROVEMENT 4: Slower LR decrease (0.7 → 0.8)
+    # Rationale: LR doesn't drop too fast, allowing more fine-tuning
+    decrease_factor: 0.8
+    # IMPROVEMENT 5: Label smoothing (0.0 → 0.1)
+    # Rationale: Reduce overfitting, improve generalization
+    label_smoothing: 0.1
 model:
     initializer: xavier
     bias_initializer: zeros
@@ -91,7 +101,8 @@ model:
     tied_softmax: false
     encoder:
         type: transformer
-        num_layers: 3
+        # IMPROVEMENT 6: 4 layers (from v2/v3 - proven to improve translation)
+        num_layers: 4
         num_heads: 8
         embeddings:
             embedding_dim: 512
@@ -104,7 +115,8 @@ model:
         dropout: 0.1
     decoder:
         type: transformer
-        num_layers: 3
+        # IMPROVEMENT 7: 4 layers (from v2/v3 - proven to improve translation)
+        num_layers: 4
         num_heads: 8
         embeddings:
             embedding_dim: 512

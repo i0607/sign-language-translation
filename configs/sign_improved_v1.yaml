@@ -1,4 +1,4 @@
-name: sign_experiment
+name: sign_experiment_improved_v1
 data:
     data_path: ./data/
     version: phoenix_2014_trans
@@ -50,8 +50,8 @@ training:
     reset_scheduler: false
     reset_optimizer: false
     random_seed: 42
-    model_dir: "./sign_sample_model"
-    recognition_loss_weight: 1.0
+    model_dir: "./sign_sample_model_improved_v1"
+    recognition_loss_weight: 2.0  # IMPROVEMENT: Increased from 1.0 to focus more on recognition
     translation_loss_weight: 1.0
     eval_metric: bleu
     optimizer: adam

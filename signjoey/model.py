@@ -4,6 +4,7 @@ import tensorflow as tf
 tf.config.set_visible_devices([], "GPU")
 
 import numpy as np
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -73,6 +74,27 @@ class SignModel(nn.Module):
         self.gloss_output_layer = gloss_output_layer
         self.do_recognition = do_recognition
         self.do_translation = do_translation
+        self.lang_head_token_ids = getattr(self.decoder, "lang_head_token_ids", [])
+
+    def _extract_lang_ids_from_tokens(self, token_ids: Tensor) -> Tensor:
+        if not self.lang_head_token_ids or token_ids is None:
+            return None
+        lang_ids = token_ids.new_full((token_ids.size(0),), -1)
+        for head_idx, token_id in enumerate(self.lang_head_token_ids):
+            lang_ids[token_ids.eq(token_id)] = head_idx
+        return lang_ids
+
+    def _extract_lang_ids_from_sequences(self, sequences, device) -> Tensor:
+        if not self.lang_head_token_ids or sequences is None:
+            return None
+        lang_ids = torch.zeros(len(sequences), dtype=torch.long, device=device)
+        if len(self.lang_head_token_ids) < 2:
+            return lang_ids
+        for idx, sequence in enumerate(sequences):
+            seq_lower = str(sequence).lower()
+            if any(tag in seq_lower for tag in ["__en", "_en", "-en", "/en"]):
+                lang_ids[idx] = 1
+        return lang_ids
 
     # pylint: disable=arguments-differ
     def forward(
@@ -111,6 +133,11 @@ class SignModel(nn.Module):
 
         if self.do_translation:
             unroll_steps = txt_input.size(1)
+            lang_ids = (
+                self._extract_lang_ids_from_tokens(txt_input[:, 1])
+                if txt_input.size(1) > 1
+                else None
+            )
             decoder_outputs = self.decode(
                 encoder_output=encoder_output,
                 encoder_hidden=encoder_hidden,
@@ -118,6 +145,7 @@ class SignModel(nn.Module):
                 txt_input=txt_input,
                 unroll_steps=unroll_steps,
                 txt_mask=txt_mask,
+                lang_ids=lang_ids,
             )
         else:
             decoder_outputs = None
@@ -150,6 +178,7 @@ class SignModel(nn.Module):
         unroll_steps: int,
         decoder_hidden: Tensor = None,
         txt_mask: Tensor = None,
+        lang_ids: Tensor = None,
     ) -> (Tensor, Tensor, Tensor, Tensor):
         """
         Decode, given an encoded source sentence.
@@ -171,6 +200,7 @@ class SignModel(nn.Module):
             trg_mask=txt_mask,
             unroll_steps=unroll_steps,
             hidden=decoder_hidden,
+            lang_ids=lang_ids,
         )
 
     def get_loss_for_batch(
@@ -295,6 +325,13 @@ class SignModel(nn.Module):
             decoded_gloss_sequences = None
 
         if self.do_translation:
+            lang_ids = None
+            if batch.txt is not None:
+                lang_ids = self._extract_lang_ids_from_tokens(batch.txt[:, 0])
+            if lang_ids is None:
+                lang_ids = self._extract_lang_ids_from_sequences(
+                    batch.sequence, device=batch.sgn.device
+                )
             # greedy decoding
             if translation_beam_size < 2:
                 stacked_txt_output, stacked_attention_scores = greedy(
@@ -306,6 +343,7 @@ class SignModel(nn.Module):
                     eos_index=self.txt_eos_index,
                     decoder=self.decoder,
                     max_output_length=translation_max_output_length,
+                    lang_ids=lang_ids,
                 )
                 # batch, time, max_sgn_length
             else:  # beam size
@@ -321,6 +359,7 @@ class SignModel(nn.Module):
                     pad_index=self.txt_pad_index,
                     bos_index=self.txt_bos_index,
                     decoder=self.decoder,
+                    lang_ids=lang_ids,
                 )
         else:
             stacked_txt_output = stacked_attention_scores = None
@@ -370,6 +409,10 @@ def build_model(
     """
 
     txt_padding_idx = txt_vocab.stoi[PAD_TOKEN]
+    lang_head_tokens = cfg["decoder"].get("lang_head_tokens", [])
+    lang_head_token_ids = [
+        txt_vocab.stoi[token] for token in lang_head_tokens if token in txt_vocab.stoi
+    ]
 
     sgn_embed: SpatialEmbeddings = SpatialEmbeddings(
         **cfg["encoder"]["embeddings"],
@@ -422,6 +465,7 @@ def build_model(
                 vocab_size=len(txt_vocab),
                 emb_size=txt_embed.embedding_dim,
                 emb_dropout=dec_emb_dropout,
+                lang_head_token_ids=lang_head_token_ids,
             )
         else:
             decoder = RecurrentDecoder(
@@ -430,6 +474,7 @@ def build_model(
                 vocab_size=len(txt_vocab),
                 emb_size=txt_embed.embedding_dim,
                 emb_dropout=dec_emb_dropout,
+                lang_head_token_ids=lang_head_token_ids,
             )
     else:
         txt_embed = None
@@ -461,6 +506,10 @@ def build_model(
                     "hidden_size must be the same."
                     "The decoder must be a Transformer."
                 )
+        # initialize language-specific heads from the shared output layer
+        if getattr(model.decoder, "lang_output_layers", None) is not None:
+            for lang_output_layer in model.decoder.lang_output_layers:
+                lang_output_layer.weight.data.copy_(model.decoder.output_layer.weight.data)
 
     # custom initialization of model parameters
     initialize_model(model, cfg, txt_padding_idx)

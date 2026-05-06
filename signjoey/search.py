@@ -21,6 +21,7 @@ def greedy(
     decoder: Decoder,
     encoder_output: Tensor,
     encoder_hidden: Tensor,
+    lang_ids: Tensor = None,
 ) -> (np.array, np.array):
     """
     Greedy decoding. Select the token word highest probability at each time
@@ -54,6 +55,7 @@ def greedy(
         decoder=decoder,
         encoder_output=encoder_output,
         encoder_hidden=encoder_hidden,
+        lang_ids=lang_ids,
     )
 
 
@@ -66,6 +68,7 @@ def recurrent_greedy(
     decoder: Decoder,
     encoder_output: Tensor,
     encoder_hidden: Tensor,
+    lang_ids: Tensor = None,
 ) -> (np.array, np.array):
     """
     Greedy decoding: in each step, choose the word that gets highest score.
@@ -104,6 +107,7 @@ def recurrent_greedy(
             hidden=hidden,
             prev_att_vector=prev_att_vector,
             unroll_steps=1,
+            lang_ids=lang_ids,
         )
         # logits: batch x time=1 x vocab (logits)
 
@@ -135,6 +139,7 @@ def transformer_greedy(
     decoder: Decoder,
     encoder_output: Tensor,
     encoder_hidden: Tensor,
+    lang_ids: Tensor = None,
 ) -> (np.array, None):
     """
     Special greedy function for transformer, since it works differently.
@@ -176,6 +181,7 @@ def transformer_greedy(
                 unroll_steps=None,
                 hidden=None,
                 trg_mask=trg_mask,
+                lang_ids=lang_ids,
             )
 
             logits = logits[:, -1]
@@ -208,6 +214,7 @@ def beam_search(
     alpha: float,
     embed: Embeddings,
     n_best: int = 1,
+    lang_ids: Tensor = None,
 ) -> (np.array, np.array):
     """
     Beam search with size k.
@@ -254,6 +261,8 @@ def beam_search(
         encoder_output.contiguous(), size, dim=0
     )  # batch*k x src_len x enc_hidden_size
     src_mask = tile(src_mask, size, dim=0)  # batch*k x 1 x src_len
+    if lang_ids is not None:
+        lang_ids = tile(lang_ids.unsqueeze(1), size, dim=0).squeeze(1)
 
     # Transformer only: create target mask
     if transformer:
@@ -319,6 +328,7 @@ def beam_search(
             prev_att_vector=att_vectors,
             unroll_steps=1,
             trg_mask=trg_mask,  # subsequent mask for Transformer only
+            lang_ids=lang_ids,
         )
 
         # For the Transformer we made predictions for all time steps up to
@@ -359,7 +369,7 @@ def beam_search(
         batch_index = topk_beam_index + beam_offset[
             : topk_beam_index.size(0)
         ].unsqueeze(1)
-        select_indices = batch_index.view(-1)
+        select_indices = batch_index.view(-1).long()
 
         # append latest prediction
         alive_seq = torch.cat(
@@ -414,9 +424,11 @@ def beam_search(
             )
 
         # reorder indices, outputs and masks
-        select_indices = batch_index.view(-1)
+        select_indices = batch_index.view(-1).long()
         encoder_output = encoder_output.index_select(0, select_indices)
         src_mask = src_mask.index_select(0, select_indices)
+        if lang_ids is not None:
+            lang_ids = lang_ids.index_select(0, select_indices)
 
         if hidden is not None and not transformer:
             if isinstance(hidden, tuple):

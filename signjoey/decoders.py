@@ -50,6 +50,7 @@ class RecurrentDecoder(Decoder):
         init_hidden: str = "bridge",
         input_feeding: bool = True,
         freeze: bool = False,
+        lang_head_token_ids: list = None,
         **kwargs
     ) -> None:
         """
@@ -108,6 +109,15 @@ class RecurrentDecoder(Decoder):
         )
 
         self.output_layer = nn.Linear(hidden_size, vocab_size, bias=False)
+        self.lang_head_token_ids = lang_head_token_ids or []
+        self.num_lang_heads = len(self.lang_head_token_ids)
+        self.lang_output_layers = (
+            nn.ModuleList(
+                [nn.Linear(hidden_size, vocab_size, bias=False) for _ in self.lang_head_token_ids]
+            )
+            if self.num_lang_heads > 0
+            else None
+        )
         self._output_size = vocab_size
 
         if attention == "bahdanau":
@@ -145,6 +155,16 @@ class RecurrentDecoder(Decoder):
                     )
         if freeze:
             freeze_params(self)
+
+    def _project_outputs(self, hidden_states: Tensor, lang_ids: Tensor = None) -> Tensor:
+        if self.lang_output_layers is None or lang_ids is None:
+            return self.output_layer(hidden_states)
+        outputs = self.output_layer(hidden_states)
+        for head_idx, layer in enumerate(self.lang_output_layers):
+            sample_mask = lang_ids.eq(head_idx)
+            if sample_mask.any():
+                outputs[sample_mask] = layer(hidden_states[sample_mask])
+        return outputs
 
     def _check_shapes_input_forward_step(
         self,
@@ -399,7 +419,8 @@ class RecurrentDecoder(Decoder):
         # att_vectors: batch, unroll_steps, hidden_size
         att_probs = torch.cat(att_probs, dim=1)
         # att_probs: batch, unroll_steps, src_length
-        outputs = self.output_layer(att_vectors)
+        lang_ids = kwargs.get("lang_ids", None)
+        outputs = self._project_outputs(att_vectors, lang_ids=lang_ids)
         # outputs: batch, unroll_steps, vocab_size
         return outputs, hidden, att_probs, att_vectors
 
@@ -474,6 +495,7 @@ class TransformerDecoder(Decoder):
         emb_dropout: float = 0.1,
         vocab_size: int = 1,
         freeze: bool = False,
+        lang_head_token_ids: list = None,
         **kwargs
     ):
         """
@@ -512,9 +534,28 @@ class TransformerDecoder(Decoder):
 
         self.emb_dropout = nn.Dropout(p=emb_dropout)
         self.output_layer = nn.Linear(hidden_size, vocab_size, bias=False)
+        self.lang_head_token_ids = lang_head_token_ids or []
+        self.num_lang_heads = len(self.lang_head_token_ids)
+        self.lang_output_layers = (
+            nn.ModuleList(
+                [nn.Linear(hidden_size, vocab_size, bias=False) for _ in self.lang_head_token_ids]
+            )
+            if self.num_lang_heads > 0
+            else None
+        )
 
         if freeze:
             freeze_params(self)
+
+    def _project_outputs(self, hidden_states: Tensor, lang_ids: Tensor = None) -> Tensor:
+        if self.lang_output_layers is None or lang_ids is None:
+            return self.output_layer(hidden_states)
+        outputs = self.output_layer(hidden_states)
+        for head_idx, layer in enumerate(self.lang_output_layers):
+            sample_mask = lang_ids.eq(head_idx)
+            if sample_mask.any():
+                outputs[sample_mask] = layer(hidden_states[sample_mask])
+        return outputs
 
     def forward(
         self,
@@ -552,7 +593,8 @@ class TransformerDecoder(Decoder):
             x = layer(x=x, memory=encoder_output, src_mask=src_mask, trg_mask=trg_mask)
 
         x = self.layer_norm(x)
-        output = self.output_layer(x)
+        lang_ids = kwargs.get("lang_ids", None)
+        output = self._project_outputs(x, lang_ids=lang_ids)
 
         return output, x, None, None
 

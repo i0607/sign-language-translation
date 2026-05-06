@@ -339,7 +339,20 @@ def test(
         do_recognition=do_recognition,
         do_translation=do_translation,
     )
-    model.load_state_dict(model_checkpoint["model_state"])
+    try:
+        model.load_state_dict(model_checkpoint["model_state"])
+    except RuntimeError as load_error:
+        logger.warning(
+            "Strict checkpoint load failed (%s). Falling back to non-strict load "
+            "to support architecture extensions such as language-specific heads.",
+            load_error,
+        )
+        load_result = model.load_state_dict(model_checkpoint["model_state"], strict=False)
+        logger.warning(
+            "Non-strict load missing keys: %s | unexpected keys: %s",
+            load_result.missing_keys,
+            load_result.unexpected_keys,
+        )
 
     if use_cuda:
         model.cuda()

@@ -1,40 +1,29 @@
-# Sign Language Transformers (CVPR'20)
+# Sign Language Transformers (Joey-Sign)
 
-This repo contains the training and evaluation code for the paper [Sign Language Transformers: Sign Language Transformers: Joint End-to-end Sign Language Recognition and Translation](https://www.cihancamgoz.com/pub/camgoz2020cvpr.pdf). 
+PyTorch code for joint continuous **sign language recognition** (gloss, CTC) and **sign-to-text translation** (transformer encoder–decoder), as in Camgoz et al., CVPR 2020. This tree is based on the public SignJoey release and includes small extensions used in our multilingual DE/EN work (for example optional language-specific decoder heads via `lang_head_tokens` in the decoder section of a config).
 
-This code is based on [Joey NMT](https://github.com/joeynmt/joeynmt) but modified to realize joint continuous sign language recognition and translation. For text-to-text translation experiments, you can use the original Joey NMT framework.
- 
-## Requirements
-* Download the feature files using the `data/download.sh` script.
+## Setup
 
-* [Optional] Create a conda or python virtual environment.
+```bash
+python3 -m venv venv
+source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-* Install required packages using the `requirements.txt` file.
+Populate `data/` as described in `data/README.md`.
 
-    `pip install -r requirements.txt`
+## Train and evaluate
 
-## Usage
+```bash
+python -m signjoey train configs/sign.yaml
+```
 
-  `python -m signjoey train configs/sign.yaml` 
+Adjust `data_path`, splits, and `model_dir` in the YAML as needed. After training, the driver runs dev/test evaluation when test data are listed in the config.
 
-! Note that the default data directory is `./data`. If you download them to somewhere else, you need to update the `data_path` parameters in your config file.   
-## ToDo:
+## Configuration
 
-- [X] *Initial code release.*
-- [X] *Release image features for Phoenix2014T.*
-- [ ] Share extensive qualitative and quantitative results & config files to generate them.
-- [ ] (Nice to have) - Guide to set up conda environment and docker image.
+Files under `configs/` follow the same schema as the upstream project. Training hyperparameters, loss weights, and architecture blocks (`encoder`, `decoder`) are set there. For bilingual setups, vocabulary must contain any control tokens (for example `<de>`, `<en>`) referenced in the data.
 
-## Reference
+## License
 
-Please cite the paper below if you use this code in your research:
-
-    @inproceedings{camgoz2020sign,
-      author = {Necati Cihan Camgoz and Oscar Koller and Simon Hadfield and Richard Bowden},
-      title = {Sign Language Transformers: Joint End-to-end Sign Language Recognition and Translation},
-      booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
-      year = {2020}
-    }
-
-## Acknowledgements
-<sub>This work was funded by the SNSF Sinergia project "Scalable Multimodal Sign Language Technology for Sign Language Learning and Assessment" (SMILE) grant agreement number CRSII2 160811 and the European Union’s Horizon2020 research and innovation programme under grant agreement no. 762021 (Content4All). This work reflects only the author’s view and the Commission is not responsible for any use that may be made of the information it contains. We would also like to thank NVIDIA Corporation for their GPU grant. </sub>
+See `LICENSE`. When publishing work built on this code, cite the original Sign Language Transformers paper and respect dataset terms for PHOENIX-2014-T.

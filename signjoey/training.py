@@ -316,7 +316,22 @@ class TrainManager:
         model_checkpoint = load_checkpoint(path=path, use_cuda=self.use_cuda)
 
         # restore model and optimizer parameters
-        self.model.load_state_dict(model_checkpoint["model_state"])
+        try:
+            self.model.load_state_dict(model_checkpoint["model_state"])
+        except RuntimeError as load_error:
+            self.logger.warning(
+                "Strict checkpoint load failed (%s). Falling back to non-strict load "
+                "to support architecture extensions such as language-specific heads.",
+                load_error,
+            )
+            load_result = self.model.load_state_dict(
+                model_checkpoint["model_state"], strict=False
+            )
+            self.logger.warning(
+                "Non-strict load missing keys: %s | unexpected keys: %s",
+                load_result.missing_keys,
+                load_result.unexpected_keys,
+            )
 
         if not reset_optimizer:
             self.optimizer.load_state_dict(model_checkpoint["optimizer_state"])
