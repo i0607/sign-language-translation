@@ -1,0 +1,13 @@
+# Stage-2 extras (cascade + COMET)
+# Install into a separate venv if preferred:
+#   python3 -m venv venv-stage2 && source venv-stage2/bin/activate
+#   pip install -r requirements-stage2.txt
+
+torch>=1.13.0
+transformers>=4.36.0
+sentencepiece>=0.1.99
+accelerate>=0.25.0
+unbabel-comet>=2.0.0
+numpy>=1.22.0
+pandas>=1.5.0
+tqdm>=4.64.0
