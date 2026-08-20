@@ -14,7 +14,6 @@ PyTorch code for joint continuous **sign language recognition** (gloss, CTC) and
 ```bash
 git clone git@github.com:i0607/sign-language-translation.git
 cd sign-language-translation
-git checkout clean-release
 ```
 
 ## Quick start
